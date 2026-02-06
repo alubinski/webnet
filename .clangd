@@ -1,0 +1,17 @@
+# Section 1: Global/Linux settings
+CompileFlags:
+  Add:
+    - -std=c++23
+    - -fparse-all-comments
+
+---
+
+# Section 2: Windows-specific overrides
+If:
+  PathMatch: .*_windows\.cpp
+CompileFlags:
+  Add:
+    - -D_WIN32
+    - --target=x86_64-w64-mingw32
+    - -isystem
+    - /usr/share/mingw-w64/include
