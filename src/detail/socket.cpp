@@ -9,7 +9,10 @@ Socket::Socket(Handle handle, SocketFlags::AddressFamily address_family,
                SocketFlags::InheritableType inheritable) noexcept
     : address_family_(address_family), socket_type_(socket_type),
       protocol_type_(protocol_type), blocking_(blocking),
-      inheritable_(inheritable), handle_(handle) {}
+      inheritable_(inheritable), handle_(handle) {
+  setBlocking(blocking);
+  setInheritable(inheritable);
+}
 
 Socket::Socket(Socket &&other) noexcept
     : address_family_(other.address_family_), socket_type_(other.socket_type_),
