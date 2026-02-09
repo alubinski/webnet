@@ -42,7 +42,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 
 # ---- Minimal Test ----
-add_executable(NetLib_test tests/socket_test.cpp tests/tcp_socket_test.cpp)
+add_executable(NetLib_test tests/socket_test.cpp tests/tcp_socket_test.cpp tests/ip_address_test.cpp tests/endpoint_test.cpp)
 target_link_libraries(NetLib_test PRIVATE NetLib Catch2::Catch2WithMain)
 if(WIN32)
   target_compile_definitions(NetLib_test PRIVATE CATCH_CONFIG_NO_WINDOWS_H)
@@ -50,6 +50,7 @@ endif()
 
 # ---- Enable testing ----
 enable_testing()
+
 include(CTest)
 include(Catch)
 catch_discover_tests(NetLib_test)
