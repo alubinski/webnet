@@ -1,6 +1,6 @@
 #pragma once
-#include "detail/ip_address.h"
-#include "detail/platform_types.h"
+#include "net/detail/ip_address.h"
+#include "net/detail/platform_types.h"
 #include <cstdint>
 
 namespace net {

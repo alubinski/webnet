@@ -1,4 +1,4 @@
-#include "net/detail/socket.h"
+#include "net/core/socket.h"
 #include "net/detail/socket_flags.h"
 #include "net/detail/socket_handle.h"
 #include <arpa/inet.h> // inet_pton

@@ -1,4 +1,4 @@
-#include "net/endpoint.h"
+#include "net/core/endpoint.h"
 #include <cstring>
 #include <stdexcept>
 

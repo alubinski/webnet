@@ -1,6 +1,6 @@
 #include "catch2/catch_test_macros.hpp"
+#include "net/core/endpoint.h"
 #include "net/detail/ip_address.h"
-#include "net/endpoint.h"
 
 using namespace net;
 
