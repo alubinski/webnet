@@ -1,6 +1,6 @@
 #include "net/detail/platform_error.h"
 #include "net/detail/syscall_helpers.h"
-#include <net/tcp_socket.h>
+#include <net/protocol/tcp/tcp_socket.h>
 #include <system_error>
 
 namespace net {

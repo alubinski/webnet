@@ -1,7 +1,7 @@
 #include "catch2/catch_test_macros.hpp"
+#include "net/core/endpoint.h"
 #include "net/detail/socket_flags.h"
-#include "net/endpoint.h"
-#include "net/tcp_socket.h"
+#include "net/protocol/tcp/tcp_socket.h"
 #include <catch2/catch_all.hpp>
 #include <future>
 #include <iostream>

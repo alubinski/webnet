@@ -1,5 +1,5 @@
 
-#include "net/detail/socket.h"
+#include "net/core/socket.h"
 #include "net/detail/socket_flags.h"
 #include <system_error>
 #include <winsock2.h>

@@ -1,9 +1,9 @@
 #pragma once
-#include "detail/socket.h"
-#include "detail/socket_flags.h"
-#include "detail/socket_handle.h"
-#include "endpoint.h"
+#include "net/core/endpoint.h"
+#include "net/core/socket.h"
 #include "net/detail/platform_error.h"
+#include "net/detail/socket_flags.h"
+#include "net/detail/socket_handle.h"
 #include <stdexcept>
 #include <system_error>
 

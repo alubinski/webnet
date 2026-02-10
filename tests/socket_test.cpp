@@ -2,7 +2,7 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_all.hpp>
 
-#include "net/detail/socket.h"
+#include "net/core/socket.h"
 #include "net/detail/socket_flags.h"
 
 using namespace net::detail;
