@@ -21,6 +21,8 @@ set(NETLIB_CORE_SOURCES
     src/core/ip_address.cpp
     src/core/endpoint.cpp
     src/protocol/tcp/tcp_socket.cpp
+    src/protocol/tcp/tcp_connection.cpp
+    src/protocol/tcp/tcp_acceptor.cpp
 )
 
 # Platform-specific sources
@@ -81,6 +83,7 @@ set(NETLIB_TEST_SOURCES
     tests/tcp_socket_test.cpp
     tests/ip_address_test.cpp
     tests/endpoint_test.cpp
+    tests/tcp_test.cpp
 )
 
 add_executable(NetLib_test ${NETLIB_TEST_SOURCES})

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <net/detail/socket_flags.h>
 #include <net/detail/socket_handle.h>
 #include <span>
@@ -93,6 +94,10 @@ public:
     return inheritable_;
   }
 
+  void setBlocking(const SocketFlags::BlockingType blocking_type);
+
+  void setInheritable(const SocketFlags::InheritableType inheritable_type);
+
 protected:
   /**
    * @brief Constructs from an existing native handle (e.g., accept()).
@@ -103,6 +108,9 @@ protected:
          SocketFlags::BlockingType blocking,
          SocketFlags::InheritableType inheritable) noexcept;
 
+  explicit Socket(std::nullptr_t) noexcept
+      : handle_(detail::SocketDescriptorHandle::Invalid) {}
+
   /**
    * @brief Low-level send wrapper for derived classes.
    */
@@ -112,9 +120,6 @@ protected:
    * @brief Low-level recv wrapper for derived classes.
    */
   [[nodiscard]] std::size_t raw_recv(std::span<std::byte> buffe);
-
-  void setBlocking(const SocketFlags::BlockingType blocking_type);
-  void setInheritable(const SocketFlags::InheritableType inheritable_type);
 
 private:
   SocketDescriptorHandle handle_{};

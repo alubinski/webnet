@@ -4,6 +4,7 @@
 #include "net/detail/platform_error.h"
 #include "net/detail/socket_flags.h"
 #include "net/detail/socket_handle.h"
+#include <cstddef>
 #include <stdexcept>
 #include <system_error>
 
@@ -38,7 +39,7 @@ public:
    * @param inheritable    Whether the handle is inheritable
    */
   explicit TcpSocket(AddressFamily family = AddressFamily::IPV4,
-                     BlockingType blocking = BlockingType::Blocking,
+                     BlockingType blocking = BlockingType::NonBlocking,
                      InheritableType inheritable = InheritableType::Inheritable)
       : Socket(family, SocketType::Stream, ProtocolType::TCP, blocking,
                inheritable) {}
@@ -48,6 +49,8 @@ public:
 
   TcpSocket(const TcpSocket &) = delete;
   TcpSocket &operator=(const TcpSocket &) = delete;
+
+  explicit TcpSocket(std::nullptr_t) : Socket(nullptr) {}
 
   /**
    * @brief Destructor closes the socket if valid.

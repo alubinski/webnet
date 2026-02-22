@@ -106,7 +106,8 @@ TEST_CASE("Non-blocking raw_recv returns EAGAIN") {
 
   std::vector<std::byte> buffer(8);
 
-  REQUIRE_THROWS_AS(s1.raw_recv(buffer), std::system_error);
+  auto result = s1.raw_recv(buffer);
+  REQUIRE(result == 0);
 }
 
 TEST_CASE("Base raw_send and raw_recv transmit exact bytes") {
@@ -222,12 +223,8 @@ TEST_CASE("Windows non-blocking recv returns WSAEWOULDBLOCK") {
 
   std::vector<std::byte> buffer(8);
 
-  try {
-    auto size = server.raw_recv(buffer);
-    FAIL("Expected exception");
-  } catch (const std::system_error &e) {
-    REQUIRE(e.code().value() == WSAEWOULDBLOCK);
-  }
+  auto size = server.raw_recv(buffer);
+  REQUIRE(size == 0);
 
   ::closesocket(c);
 }
