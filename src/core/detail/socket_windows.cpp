@@ -86,7 +86,7 @@ std::size_t Socket::raw_send(std::span<const std::byte> data) {
     if (result != SOCKET_ERROR)
       return static_cast<std::size_t>(result);
 
-    int err = last_socket_error();
+    const auto err = last_socket_error();
 
     if (is_interrupted(err))
       continue;
@@ -110,7 +110,7 @@ std::size_t Socket::raw_recv(std::span<std::byte> buffer) {
     if (result != SOCKET_ERROR)
       return static_cast<std::size_t>(result);
 
-    int err = last_socket_error();
+    const auto err = last_socket_error();
 
     if (is_interrupted(err))
       continue;

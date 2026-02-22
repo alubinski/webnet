@@ -21,6 +21,8 @@ set(NETLIB_CORE_SOURCES
     src/core/ip_address.cpp
     src/core/endpoint.cpp
     src/protocol/tcp/tcp_socket.cpp
+    src/protocol/tcp/tcp_connection.cpp
+    src/protocol/tcp/tcp_acceptor.cpp
 )
 
 # Platform-specific sources
