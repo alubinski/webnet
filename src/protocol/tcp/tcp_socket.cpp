@@ -1,5 +1,7 @@
 #include "net/detail/platform_error.h"
+#include "net/detail/socket_handle.h"
 #include "net/detail/syscall_helpers.h"
+#include <iostream>
 #include <net/protocol/tcp/tcp_socket.h>
 #include <system_error>
 
@@ -9,22 +11,27 @@ void TcpSocket::connect(const Endpoint &ep) {
   if (!is_valid()) {
     throw std::logic_error("connect on invalid socket");
   }
-  int result;
-  do {
-    result = ::connect(native_handle(), ep.data(), ep.size());
-  } while (result < 0 && detail::last_socket_error() == EINTR);
 
-  if (result == 0) {
-    return; // success
+  for (;;) {
+    const auto result = ::connect(native_handle(), ep.data(), ep.size());
+
+    if (result == 0)
+      return; // connected immediately
+
+    const auto err = detail::last_socket_error();
+
+    if (detail::is_interrupted(err))
+      continue;
+
+    // Non-blocking connect in progress
+    if (blocking() == BlockingType::NonBlocking &&
+        detail::is_in_progress(err)) {
+      return;
+    }
+
+    throw std::system_error(err, detail::socket_category(),
+                            "tcp connect failed");
   }
-
-  // Non-blocking connect in progress
-  int err = detail::last_socket_error();
-  if (blocking() == BlockingType::NonBlocking && detail::is_in_progress(err)) {
-    return;
-  }
-
-  throw std::system_error(err, detail::socket_category(), "tcp connect failed");
 }
 
 void TcpSocket::bind(const Endpoint &ep) {
@@ -63,22 +70,30 @@ void TcpSocket::listen(int backlog) {
 }
 
 TcpSocket TcpSocket::accept(Endpoint &peer) {
-  if (!is_valid())
-    throw std::logic_error("accept on invalid socket");
+  for (;;) {
+    const auto sock = ::accept(native_handle(), peer.data(), peer.size_ptr());
 
-  auto new_handle = detail::retry_if_interrupted(
-      [&] { return ::accept(native_handle(), peer.data(), peer.size_ptr()); });
+    if (sock >= 0)
+      return TcpSocket(sock, AddressFamily::IPV4, BlockingType::NonBlocking,
+                       inheritable());
 
-  if (new_handle == detail::SocketDescriptorHandle::Invalid) {
-    throw std::system_error(detail::last_socket_error(),
-                            detail::socket_category(), "tcp accept failed");
+    int err = detail::last_socket_error();
+
+    if (detail::is_interrupted(err))
+      continue;
+
+    if (detail::is_would_block(err))
+      return TcpSocket(nullptr); // ← signal async layer
+
+    throw std::system_error(err, detail::socket_category(),
+                            "tcp accept failed");
   }
-  return TcpSocket(new_handle, address_family(), blocking(), inheritable());
 }
 
 std::size_t TcpSocket::send(std::span<const std::byte> data) {
   return raw_send(data);
 }
+
 std::size_t TcpSocket::receive(std::span<std::byte> buffer) {
   return raw_recv(buffer);
 }
