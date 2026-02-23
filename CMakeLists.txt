@@ -5,6 +5,10 @@ project(NetLib
     LANGUAGES CXX
 )
 
+if(APPLE)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "" FORCE)
+endif()
+
 # ---- C++ Standard ----
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -50,6 +54,8 @@ set(NETLIB_SOURCES
 
 add_library(NetLib ${NETLIB_SOURCES})
 
+target_compile_features(NetLib PUBLIC cxx_std_23)
+
 target_include_directories(NetLib
     PUBLIC
         include
@@ -87,6 +93,8 @@ set(NETLIB_TEST_SOURCES
 )
 
 add_executable(NetLib_test ${NETLIB_TEST_SOURCES})
+
+target_compile_features(NetLib_test PRIVATE cxx_std_23)
 
 target_link_libraries(NetLib_test
     PRIVATE
