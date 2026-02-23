@@ -5,6 +5,10 @@ project(NetLib
     LANGUAGES CXX
 )
 
+if(APPLE)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "" FORCE)
+endif()
+
 # ---- C++ Standard ----
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +25,8 @@ set(NETLIB_CORE_SOURCES
     src/core/ip_address.cpp
     src/core/endpoint.cpp
     src/protocol/tcp/tcp_socket.cpp
+    src/protocol/tcp/tcp_connection.cpp
+    src/protocol/tcp/tcp_acceptor.cpp
 )
 
 # Platform-specific sources
@@ -47,6 +53,8 @@ set(NETLIB_SOURCES
 # ============================================================
 
 add_library(NetLib ${NETLIB_SOURCES})
+
+target_compile_features(NetLib PUBLIC cxx_std_23)
 
 target_include_directories(NetLib
     PUBLIC
@@ -81,9 +89,12 @@ set(NETLIB_TEST_SOURCES
     tests/tcp_socket_test.cpp
     tests/ip_address_test.cpp
     tests/endpoint_test.cpp
+    tests/tcp_test.cpp
 )
 
 add_executable(NetLib_test ${NETLIB_TEST_SOURCES})
+
+target_compile_features(NetLib_test PRIVATE cxx_std_23)
 
 target_link_libraries(NetLib_test
     PRIVATE

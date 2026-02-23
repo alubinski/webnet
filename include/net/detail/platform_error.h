@@ -41,20 +41,49 @@ inline bool is_in_progress(int err) {
 }
 
 /**
- * @brief Checks if a socket operation was interrupted by a signal.
+ * @brief Checks whether a socket operation was interrupted.
  *
- * On Unix-like systems, checks for EINTR.
- * On Windows, always returns false (Windows does not use EINTR).
+ * This function tests if the provided error code corresponds to an interrupt
+ * condition that typically occurs when a blocking operation is interrupted by a
+ * signal or event.
  *
- * @param err Error code to check.
- * @return true if the operation was interrupted, false otherwise.
+ * Platform-specific behavior:
+ * - On Windows, checks against `WSAEINTR`.
+ * - On Unix-like systems, checks against `EINTR`.
+ *
+ * @param err Error code to evaluate.
+ * @return true if the error indicates an interrupted operation, false
+ * otherwise.
  */
 inline bool is_interrupted(int err) {
 #ifdef _WIN32
-  return false;
+  return err == WSAEINTR;
 #else
   return err == EINTR;
 #endif // _WIN32
+}
+
+/**
+ * @brief Checks whether the given error code represents a non-blocking "would
+ * block" condition.
+ *
+ * This function determines if a system error corresponds to a situation where
+ * an operation cannot be completed immediately because it would block. The
+ * check is platform-dependent:
+ *
+ * - On Windows, it compares against `WSAEWOULDBLOCK`.
+ * - On non-Windows systems, it checks for `EAGAIN` or `EWOULDBLOCK`.
+ *
+ * @param err The error code to evaluate.
+ * @return True if the error indicates a "would block" condition, otherwise
+ * false.
+ */
+inline bool is_would_block(int err) {
+#ifdef _WIN32
+  return err == WSAEWOULDBLOCK;
+#else
+  return err == EAGAIN || err == EWOULDBLOCK;
+#endif
 }
 
 /**

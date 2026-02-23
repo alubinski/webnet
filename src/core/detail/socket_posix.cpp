@@ -1,4 +1,5 @@
 #include "net/core/socket.h"
+#include "net/detail/platform_error.h"
 #include "net/detail/socket_flags.h"
 #include "net/detail/socket_handle.h"
 #include <arpa/inet.h> // inet_pton
@@ -105,39 +106,65 @@ void Socket::setInheritable(
 }
 
 std::size_t Socket::raw_send(std::span<const std::byte> data) {
-  ssize_t result;
-
-  do {
-    result = ::send(handle_, // or handle_ if implicit conversion
-                    reinterpret_cast<const void *>(data.data()), data.size(),
-#ifdef MSG_NOSIGNAL
-                    MSG_NOSIGNAL
-#else
-                    0
-#endif
-    );
-  } while (result < 0 && errno == EINTR);
-
-  if (result < 0) {
-    throw std::system_error(errno, std::generic_category(), "send() failed");
+  if (!is_valid()) {
+    throw std::runtime_error("send on invalid socket");
   }
 
-  return static_cast<std::size_t>(result);
+  for (;;) {
+    const auto result = ::send(
+        handle_, reinterpret_cast<const void *>(data.data()), data.size(),
+#ifdef MSG_NOSIGNAL
+        MSG_NOSIGNAL
+#else
+        0
+#endif
+    );
+
+    if (result >= 0)
+      return static_cast<std::size_t>(result);
+
+    const int err = errno;
+
+    if (is_interrupted(err))
+      continue;
+
+    if (is_would_block(err)) {
+      if (blocking() == SocketFlags::BlockingType::NonBlocking) {
+        return 0; // signal to async layer
+      }
+      continue;
+    }
+
+    throw std::system_error(err, std::generic_category(), "send() failed");
+  }
 }
 
 std::size_t Socket::raw_recv(std::span<std::byte> buffer) {
-  ssize_t result;
-
-  do {
-    result = ::recv(handle_, reinterpret_cast<void *>(buffer.data()),
-                    buffer.size(), 0);
-  } while (result < 0 && errno == EINTR);
-
-  if (result < 0) {
-    throw std::system_error(errno, std::generic_category(), "recv() failed");
+  if (!is_valid()) {
+    throw std::runtime_error("recv invalid socket");
   }
 
-  return static_cast<std::size_t>(result);
+  for (;;) {
+    const auto result = ::recv(handle_, reinterpret_cast<void *>(buffer.data()),
+                               buffer.size(), 0);
+
+    if (result >= 0)
+      return static_cast<std::size_t>(result);
+
+    const int err = errno;
+
+    if (is_interrupted(err))
+      continue;
+
+    if (is_would_block(err)) {
+      if (blocking() == SocketFlags::BlockingType::NonBlocking) {
+        return 0; // signal to async layer
+      }
+      continue;
+    }
+
+    throw std::system_error(err, std::generic_category(), "recv() failed");
+  }
 }
 
 void Socket::shutdown(SocketFlags::ShutdownType how) {
