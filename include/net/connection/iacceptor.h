@@ -1,8 +1,8 @@
 #pragma once
 #include "net/connection/iconnection.h"
 #include "net/core/endpoint.h"
+#include "net/coroutine/task.h"
 #include "net/detail/socket_handle.h"
-#include "net/detail/task.h"
 #include <memory>
 
 namespace net {
@@ -67,6 +67,9 @@ public:
    * - Pending or future accept operations may fail.
    */
   virtual void close() = 0;
+
+  virtual void bind(const Endpoint &ep) = 0;
+  virtual void listen(int backlog) = 0;
 };
 
 } // namespace net

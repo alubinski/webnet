@@ -75,4 +75,6 @@ struct SocketDescriptorHandle {
   }
 };
 
+using fd_t = SocketDescriptorHandle::Handle;
+
 } // namespace net::detail

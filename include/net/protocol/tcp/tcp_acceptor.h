@@ -2,6 +2,7 @@
 #include "net/connection/iacceptor.h"
 #include "net/connection/iconnection.h"
 #include "net/core/endpoint.h"
+#include "net/coroutine/task.h"
 #include "net/protocol/tcp/tcp_connection.h"
 #include "tcp_socket.h"
 #include <functional>
@@ -24,16 +25,17 @@ public:
    *
    * @param family Address family to use for the underlying socket.
    */
-  explicit TcpAcceptor(
-      TcpSocket::AddressFamily family = TcpSocket::AddressFamily::IPV4)
-      : socket_(family) {}
+  explicit TcpAcceptor(Reactor &reactor, TcpSocket::AddressFamily family =
+                                             TcpSocket::AddressFamily::IPV4)
+      : socket_(family), reactor_(reactor) {}
 
   /**
    * @brief Constructs a TCP acceptor by taking ownership of an existing socket.
    *
    * @param socket Existing TcpSocket instance to wrap.
    */
-  explicit TcpAcceptor(TcpSocket socket) : socket_(std::move(socket)) {}
+  explicit TcpAcceptor(TcpSocket socket, Reactor &reactor)
+      : socket_(std::move(socket)), reactor_(reactor) {}
 
   /**
    * @brief Retrieves the native socket handle.
@@ -63,32 +65,29 @@ public:
   /**
    * @brief Closes the acceptor socket.
    */
-  void close() override { socket_.close(); }
-
-  /**
-   * @brief Notifies the acceptor that the socket has become readable.
-   *
-   * This is typically used to resume a coroutine waiting in async_accept().
-   */
-  void notify_readable();
+  void close() override {
+    reactor_.stop();
+    socket_.close();
+  }
 
   /**
    * @brief Binds the acceptor socket to the specified endpoint.
    *
    * @param ep Endpoint to bind to.
    */
-  void bind(const Endpoint &ep) { socket_.bind(ep); }
+  void bind(const Endpoint &ep) override { socket_.bind(ep); }
 
   /**
    * @brief Starts listening for incoming connections.
    *
    * @param backlog Maximum length of the pending connection queue.
    */
-  void listen(int backlog = SOMAXCONN) { socket_.listen(SOMAXCONN); }
+  void listen(int backlog = SOMAXCONN) override { socket_.listen(SOMAXCONN); }
 
 private:
   TcpSocket socket_;
-  std::coroutine_handle<> accept_awaiting_;
+
+  Reactor &reactor_;
 };
 
 } // namespace net

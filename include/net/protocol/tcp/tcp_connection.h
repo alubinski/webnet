@@ -1,6 +1,7 @@
 #pragma once
 #include "net/connection/iconnection.h"
 #include "net/core/endpoint.h"
+#include "net/coroutine/reactor.h"
 #include "net/detail/socket_handle.h"
 #include "tcp_socket.h"
 #include <algorithm>
@@ -27,9 +28,9 @@ public:
    * @param socket Underlying TCP socket to manage.
    * @param remote Remote endpoint associated with the connection.
    */
-  explicit TcpConnection(TcpSocket socket, Endpoint remote)
+  explicit TcpConnection(TcpSocket socket, Endpoint remote, Reactor &reactor)
       : socket_(std::move(socket)), local_(socket_.localEndpoint()),
-        remote_(std::move(remote)) {}
+        remote_(std::move(remote)), reactor_(reactor) {}
 
   ~TcpConnection() {
     if (read_awaiting_)
@@ -111,6 +112,7 @@ private:
   Endpoint local_;
   Endpoint remote_;
 
+  Reactor &reactor_;
   std::coroutine_handle<> read_awaiting_;
   std::coroutine_handle<> write_awaiting_;
 

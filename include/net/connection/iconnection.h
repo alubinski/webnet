@@ -1,7 +1,7 @@
 #pragma once
 #include "net/core/endpoint.h"
+#include "net/coroutine/task.h"
 #include "net/detail/socket_handle.h"
-#include "net/detail/task.h"
 #include <cstddef>
 #include <span>
 
