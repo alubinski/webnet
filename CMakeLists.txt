@@ -27,6 +27,7 @@ set(NETLIB_CORE_SOURCES
     src/protocol/tcp/tcp_socket.cpp
     src/protocol/tcp/tcp_connection.cpp
     src/protocol/tcp/tcp_acceptor.cpp
+    src/poll/poll_factory.cpp
 )
 
 # Platform-specific sources
