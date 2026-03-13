@@ -14,17 +14,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Note: macos-latest (Apple Clang) and windows-latest (MSVC) 
+        # usually have better C++23 coverage for ranges than GCC 13.
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Only run this on Ubuntu to fix the GCC 13 issue
+      - name: Install GCC 14 (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-14
+          echo "CC=gcc-14" >> $GITHUB_ENV
+          echo "CXX=g++-14" >> $GITHUB_ENV
+
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        # Explicitly requesting C++23 standard via command line 
+        # ensures the compiler is in the right mode.
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=23
 
       - name: Build
         run: cmake --build build --config Release
