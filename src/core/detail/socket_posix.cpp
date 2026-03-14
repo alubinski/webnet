@@ -3,6 +3,7 @@
 #include "net/detail/socket_flags.h"
 #include "net/detail/socket_handle.h"
 #include <arpa/inet.h> // inet_pton
+#include <cassert>
 #include <cerrno>
 #include <errno.h> // errno
 #include <fcntl.h> // fcntl
@@ -161,6 +162,10 @@ std::size_t Socket::raw_recv(std::span<std::byte> buffer) {
         return 0; // signal to async layer
       }
       continue;
+    }
+
+    if (err == ECONNRESET || err == EPIPE) {
+      return -1;
     }
 
     throw std::system_error(err, std::generic_category(), "recv() failed");

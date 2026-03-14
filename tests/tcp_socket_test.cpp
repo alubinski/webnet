@@ -28,8 +28,8 @@ TEST_CASE("TcpSocket basic connect/accept", "[tcp]") {
     try {
       Endpoint peer;
       ready.set_value();
-      TcpSocket client = server.get().accept(peer);
-      REQUIRE(client.is_valid());
+      auto client = server.get().accept(peer);
+      REQUIRE(client.has_value());
     } catch (...) {
       eptr = std::current_exception();
     }
@@ -64,9 +64,9 @@ TEST_CASE("TcpSocket send & recv", "[tcp]") {
 
   std::thread server_thread([&] {
     Endpoint peer;
-    TcpSocket conn = server.accept(peer);
+    auto conn = server.accept(peer);
 
-    REQUIRE(conn.is_valid());
+    REQUIRE(conn.has_value());
 
     // ---- RECEIVE "hello" ----
     std::array<std::byte, 5> msg{};
@@ -74,7 +74,7 @@ TEST_CASE("TcpSocket send & recv", "[tcp]") {
 
     std::size_t total = 0;
     while (total < view.size()) {
-      auto n = conn.receive(view.subspan(total));
+      auto n = conn->receive(view.subspan(total));
       REQUIRE(n >= 0);
       total += n;
     }
@@ -91,7 +91,7 @@ TEST_CASE("TcpSocket send & recv", "[tcp]") {
 
     std::size_t sent_total = 0;
     while (sent_total < reply_view.size()) {
-      auto n = conn.send(reply_view.subspan(sent_total));
+      auto n = conn->send(reply_view.subspan(sent_total));
       REQUIRE(n >= 0);
       sent_total += n;
     }
@@ -148,11 +148,12 @@ TEST_CASE("TcpSocket shutdown produces EOF", "[tcp]") {
 
   std::thread server_thread([&] {
     Endpoint peer;
-    TcpSocket conn = server.accept(peer);
+    auto conn = server.accept(peer);
+    REQUIRE(conn.has_value());
 
     std::array<std::byte, 8> buffer{};
 
-    std::size_t n = conn.receive(buffer);
+    std::size_t n = conn->receive(buffer);
 
     REQUIRE(n == 0);
   });

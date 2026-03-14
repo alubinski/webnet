@@ -5,6 +5,8 @@
 #include "net/detail/socket_flags.h"
 #include "net/detail/socket_handle.h"
 #include <cstddef>
+#include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <system_error>
 
@@ -44,8 +46,12 @@ public:
       : Socket(family, SocketType::Stream, ProtocolType::TCP, blocking,
                inheritable) {}
 
-  TcpSocket(TcpSocket &&other) noexcept = default;
-  TcpSocket &operator=(TcpSocket &&other) noexcept = default;
+  TcpSocket(TcpSocket &&other) noexcept : Socket(std::move(other)) {}
+
+  TcpSocket &operator=(TcpSocket &&other) noexcept {
+    Socket::operator=(std::move(other));
+    return *this;
+  }
 
   TcpSocket(const TcpSocket &) = delete;
   TcpSocket &operator=(const TcpSocket &) = delete;
@@ -55,7 +61,8 @@ public:
   /**
    * @brief Destructor closes the socket if valid.
    */
-  ~TcpSocket() = default;
+  // ~TcpSocket() = default;
+  ~TcpSocket() { std::cout << "Socket destroyed\n"; }
 
   /**
    * @brief Connect to a remote endpoint.
@@ -103,7 +110,7 @@ public:
    * @note Returned socket inherits blocking and inheritable flags from this
    * socket.
    */
-  [[nodiscard]] TcpSocket accept(Endpoint &peer);
+  [[nodiscard]] std::optional<TcpSocket> accept(Endpoint &peer);
 
   /**
    * @brief Send bytes over the connection.

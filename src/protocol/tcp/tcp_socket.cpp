@@ -1,8 +1,10 @@
 #include "net/detail/platform_error.h"
+#include "net/detail/socket_flags.h"
 #include "net/detail/socket_handle.h"
 #include "net/detail/syscall_helpers.h"
 #include <iostream>
 #include <net/protocol/tcp/tcp_socket.h>
+#include <optional>
 #include <system_error>
 
 namespace net {
@@ -63,17 +65,21 @@ void TcpSocket::listen(int backlog) {
   if (!is_valid()) {
     throw std::logic_error("listen on invalid socket");
   }
+  // if (blocking() == detail::SocketFlags::BlockingType::Blocking) {
+  //   setBlocking(detail::SocketFlags::BlockingType::NonBlocking);
+  // }
+
   if (::listen(native_handle(), backlog) < 0) {
     throw std::system_error(detail::last_socket_error(),
                             detail::socket_category(), "tcp listen failed");
   }
 }
 
-TcpSocket TcpSocket::accept(Endpoint &peer) {
+std::optional<TcpSocket> TcpSocket::accept(Endpoint &peer) {
   for (;;) {
     const auto sock = ::accept(native_handle(), peer.data(), peer.size_ptr());
 
-    if (sock >= 0)
+    if (sock != detail::SocketDescriptorHandle::Invalid)
       return TcpSocket(sock, AddressFamily::IPV4, BlockingType::NonBlocking,
                        inheritable());
 
@@ -83,10 +89,10 @@ TcpSocket TcpSocket::accept(Endpoint &peer) {
       continue;
 
     if (detail::is_would_block(err))
-      return TcpSocket(nullptr); // ← signal async layer
+      return {};
 
-    throw std::system_error(err, detail::socket_category(),
-                            "tcp accept failed");
+    // throw std::system_error(err, detail::socket_category(),
+    //                         "tcp accept failed");
   }
 }
 

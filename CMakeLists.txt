@@ -27,6 +27,8 @@ set(NETLIB_CORE_SOURCES
     src/protocol/tcp/tcp_socket.cpp
     src/protocol/tcp/tcp_connection.cpp
     src/protocol/tcp/tcp_acceptor.cpp
+    src/poll/poll_factory.cpp
+    src/server/http_server.cpp
 )
 
 # Platform-specific sources
@@ -90,7 +92,12 @@ set(NETLIB_TEST_SOURCES
     tests/ip_address_test.cpp
     tests/endpoint_test.cpp
     tests/tcp_test.cpp
+    tests/http_server_test.cpp
 )
+
+if(UNIX AND NOT APPLE)
+  list(APPEND NETLIB_TEST_SOURCES tests/poll_linux_test.cpp)
+endif()
 
 add_executable(NetLib_test ${NETLIB_TEST_SOURCES})
 

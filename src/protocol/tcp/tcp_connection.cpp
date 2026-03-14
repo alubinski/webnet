@@ -1,8 +1,11 @@
 #include "net/protocol/tcp/tcp_connection.h"
 #include "net/detail/platform_error.h"
+#include "net/poll/ipoll.h"
 #include <coroutine>
 #include <cstddef>
 #include <iostream>
+#include <net/coroutine/async_operation.h>
+#include <stdexcept>
 
 namespace net {
 
@@ -18,30 +21,16 @@ task<std::size_t> TcpConnection::async_read(std::span<std::byte> buffer) {
 
     if (received == 0) {
       // peer performed orderly shutdown
-      co_return 0;
+      // co_return 0;
+      throw std::runtime_error("connection clossed");
     }
 
     auto err = detail::last_socket_error();
 
     if (detail::is_would_block(err)) {
+      co_await async_operation(reactor_, socket_.native_handle(),
+                               PollEvent::Read);
 
-      struct ReadAwaiter {
-        TcpConnection &self;
-
-        bool await_ready() const noexcept { return false; }
-
-        void await_suspend(std::coroutine_handle<> h) {
-          if (self.read_awaiting_)
-            throw std::logic_error("multiple concurrent reads not supported");
-
-          self.read_awaiting_ = h;
-        }
-
-        void await_resume() const noexcept {}
-      };
-
-      std::cout << "suspending coroutine\n";
-      co_await ReadAwaiter{*this};
       continue;
     }
 
@@ -69,22 +58,8 @@ task<void> TcpConnection::async_write(std::span<const std::byte> buffer) {
 
     if (detail::is_would_block(err)) {
 
-      struct WriteAwaiter {
-        TcpConnection &self;
-
-        bool await_ready() const noexcept { return false; }
-
-        void await_suspend(std::coroutine_handle<> h) {
-          if (self.write_awaiting_)
-            throw std::logic_error("multiple concurrent writes not supported");
-
-          self.write_awaiting_ = h;
-        }
-
-        void await_resume() const noexcept {}
-      };
-
-      co_await WriteAwaiter{*this};
+      co_await async_operation(reactor_, socket_.native_handle(),
+                               PollEvent::Write);
       continue;
     }
 
@@ -133,25 +108,14 @@ void TcpConnection::close() {
 task<void> TcpConnection::async_connect(const Endpoint &ep) {
   socket_.connect(ep);
 
-  while (true) {
+  for (;;) {
     auto err = detail::last_socket_error();
 
     if (!detail::is_in_progress(err))
       break;
 
-    struct WriteAwaiter {
-      TcpConnection &self;
-
-      bool await_ready() const noexcept { return false; }
-
-      void await_suspend(std::coroutine_handle<> h) {
-        self.write_awaiting_ = h;
-      }
-
-      void await_resume() const noexcept {}
-    };
-
-    co_await WriteAwaiter{*this};
+    co_await async_operation(reactor_, socket_.native_handle(),
+                             PollEvent::Write);
   }
 
   co_return;
