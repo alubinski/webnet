@@ -79,7 +79,7 @@ std::optional<TcpSocket> TcpSocket::accept(Endpoint &peer) {
   for (;;) {
     const auto sock = ::accept(native_handle(), peer.data(), peer.size_ptr());
 
-    if (sock >= 0)
+    if (sock != detail::SocketDescriptorHandle::Invalid)
       return TcpSocket(sock, AddressFamily::IPV4, BlockingType::NonBlocking,
                        inheritable());
 
