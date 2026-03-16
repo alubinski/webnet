@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -11,6 +12,17 @@
 #include "net/coroutine/thread_pool.h"
 
 namespace net::http {
+
+struct StringHash {
+  using is_transparent = void; // Enables heterogeneous lookup
+  size_t operator()(std::string_view sv) const {
+    return std::hash<std::string_view>{}(sv);
+  }
+  size_t operator()(const std::string &s) const {
+    return std::hash<std::string_view>{}(s);
+  }
+};
+
 class HttpServer {
 public:
   using Handler = std::function<std::string(std::string_view)>;
@@ -39,7 +51,7 @@ private:
 
   thread_pool &pool_;
   std::unique_ptr<IAcceptor> acceptor_;
-  std::unordered_map<std::string, Handler> routes_;
+  std::map<std::string, Handler, std::less<>> routes_;
   std::atomic<bool> stop_flag_{false};
 };
 

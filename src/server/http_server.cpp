@@ -1,36 +1,13 @@
 #include "net/server/http_server.h"
 #include "net/detail/socket_flags.h"
+#include "net/server/http_parser.h"
+#include "net/server/http_response.h"
+#include <iostream>
+#include <span>
+#include <string_view>
 #include <utility>
 
 namespace net::http {
-
-// template <typename T> void start_detached(task<T> &&t) {
-//   auto h = t.release_handle();         // steal handle
-//   h.promise().set_detached_flag(true); // ensure detached
-//   h.resume();                          // start execution
-// }
-
-static std::string parse_path(std::string_view request) {
-  // find first line
-  auto line_end = request.find("\r\n");
-  if (line_end == std::string_view::npos)
-    return "/";
-
-  auto first_line = request.substr(0, line_end);
-
-  // format: METHOD SP PATH SP HTTP/VERSION
-  auto method_end = first_line.find(' ');
-  if (method_end == std::string_view::npos)
-    return "/";
-
-  auto path_start = method_end + 1;
-
-  auto path_end = first_line.find(' ', path_start);
-  if (path_end == std::string_view::npos)
-    return "/";
-
-  return std::string(first_line.substr(path_start, path_end - path_start));
-}
 
 task<void> HttpServer::serve() {
   // Move execution to worker thread
@@ -40,51 +17,66 @@ task<void> HttpServer::serve() {
 
     auto conn = co_await acceptor_->async_accept();
 
-    co_await handle_client(std::move(conn));
-    // auto client_task = handle_client(std::move(conn));
+    // task(handle_client(std::move(conn))).detach();
+    auto client_task = handle_client(std::move(conn));
+    client_task.detach();
     // start_detached(std::move(client_task));
   }
 }
 
 task<void> HttpServer::handle_client(std::unique_ptr<IConnection> conn) {
+  auto fd = conn->native_handle(); // Assuming you have access
+  std::cout << "[Client " << fd << "] Connection accepted" << std::endl;
 
-  std::array<std::byte, 4096> buffer{};
+  std::string request_data;
+  std::array<char, 4096> buffer{};
 
-  auto n = co_await conn->async_read(buffer);
+  while (true) {
+    auto n =
+        co_await conn->async_read(std::as_writable_bytes(std::span(buffer)));
+    if (n <= 0) {
+      std::cout << "[Client " << fd << "] Read returned " << n << " (Closing)"
+                << std::endl;
+      break;
+    }
 
-  if (n <= 0)
-    co_return;
-
-  std::string request(reinterpret_cast<char *>(buffer.data()), n);
-
-  auto path = parse_path(request);
-
-  std::string body;
-
-  if (auto it = routes_.find(path); it != routes_.end()) {
-    body = it->second(path);
-  } else {
-    body = "Not Found";
+    request_data.append(buffer.data(), n);
+    if (request_data.find("\r\n\r\n") != std::string::npos) {
+      break;
+    }
   }
 
-  auto response = build_response(body);
+  auto req_result = parse_http(request_data);
 
-  co_await conn->async_write(std::as_bytes(std::span(response)));
+  HttpResponse res{.version = "HTTP/1.1"};
+
+  if (!req_result) {
+    res.status = HttpStatus::BadRequest;
+    res.body = "Invalid Request";
+  } else {
+    const auto &req = *req_result;
+    std::cout << "[Client " << fd << "] Request received: " << req.uri
+              << std::endl;
+
+    if (auto it = routes_.find(req.uri); it != routes_.end()) {
+      res.status = HttpStatus::OK;
+      res.body = it->second(req.uri);
+    } else {
+      res.status = HttpStatus::NotFound;
+      res.body = "Not Found";
+    }
+
+    std::string content_len = std::to_string(res.body.size());
+    res.headers.push_back({"Content-Type", "text/plain"});
+    res.headers.push_back({"Content-Length", content_len});
+  }
+
+  std::string wire_data = std::format("{}", res);
+
+  co_await conn->async_write(std::as_bytes(std::span(wire_data)));
+  std::cout << "[Client " << fd << "] Write complete" << std::endl;
 
   conn->close();
-}
-
-std::string HttpServer::build_response(std::string_view body) {
-
-  std::string resp;
-
-  resp += "HTTP/1.1 200 OK\r\n";
-  resp += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-  resp += "Connection: close\r\n";
-  resp += "\r\n";
-  resp += body;
-
-  return resp;
 }
 
 } // namespace net::http
