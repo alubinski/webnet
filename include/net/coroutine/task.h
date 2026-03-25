@@ -86,6 +86,18 @@ public:
     }
   }
 
+  std::coroutine_handle<promise_type> take_handle() {
+    // 1. Grab the current handle
+    auto h = handle;
+
+    // 2. Set the internal handle to nullptr so the
+    // Task destructor doesn't kill the coroutine.
+    handle = nullptr;
+
+    // 3. Return the handle to the caller (the ThreadPool)
+    return h;
+  }
+
   /**
    * @brief Awaiter readiness check.
    *

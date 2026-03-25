@@ -5,28 +5,28 @@
 #include <utility>
 
 namespace net {
-task<std::unique_ptr<IConnection>> TcpAcceptor::async_accept() {
-  for (;;) {
-    Endpoint peer;
-
-    if (auto socket = socket_.accept(peer); socket) {
-      co_return std::make_unique<TcpConnection>(std::move(*socket), peer,
-                                                reactor_);
-    }
-
-    const auto err = detail::last_socket_error();
-
-    if (detail::is_interrupted(err))
-      continue;
-
-    if (!detail::is_would_block(err))
-      throw std::system_error(err, detail::socket_category(), "accept failed");
-
-    // wait until socket readable
-    co_await async_operation(reactor_, socket_.native_handle(),
-                             PollEvent::Read);
-  }
-}
+// task<std::shared_ptr<IConnection>> TcpAcceptor::async_accept() {
+//   for (;;) {
+//     Endpoint peer;
+//
+//     if (auto socket = socket_.accept(peer); socket) {
+//       co_return std::make_shared<TcpConnection>(std::move(*socket), peer,
+//                                                 reactor_);
+//     }
+//
+//     const auto err = detail::last_socket_error();
+//
+//     if (detail::is_interrupted(err))
+//       continue;
+//
+//     if (!detail::is_would_block(err))
+//       throw std::system_error(err, detail::socket_category(), "accept
+//       failed");
+//
+//     // wait until socket readable
+//     // co_await async_operation(reactor_, nullptr, PollEvent::Read);
+//   }
+// }
 // task<std::unique_ptr<IConnection>> TcpAcceptor::async_accept() {
 //   for (;;) {
 //     Endpoint peer;

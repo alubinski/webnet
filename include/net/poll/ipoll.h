@@ -48,6 +48,16 @@ inline PollEvent operator&(PollEvent a, PollEvent b) {
 }
 
 /**
+ * @brief Performs bitwise OR assignment for PollEvent.
+ */
+inline PollEvent &operator|=(PollEvent &a, PollEvent b) { return a = a | b; }
+
+/**
+ * @brief Performs bitwise AND assignment for PollEvent.
+ */
+inline PollEvent &operator&=(PollEvent &a, PollEvent b) { return a = a & b; }
+
+/**
  * @brief Result returned from a polling operation.
  *
  * Represents a file descriptor that has triggered one or more

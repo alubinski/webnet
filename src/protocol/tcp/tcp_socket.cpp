@@ -91,6 +91,11 @@ std::optional<TcpSocket> TcpSocket::accept(Endpoint &peer) {
     if (detail::is_would_block(err))
       return {};
 
+    if (err == EMFILE || err == ENFILE) {
+      // std::cerr << "[WARN] Out of File Descriptors! Stopping batch.\n";
+      return {};
+    }
+
     // throw std::system_error(err, detail::socket_category(),
     //                         "tcp accept failed");
   }

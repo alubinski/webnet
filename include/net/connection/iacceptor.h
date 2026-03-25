@@ -4,6 +4,7 @@
 #include "net/coroutine/task.h"
 #include "net/detail/socket_handle.h"
 #include <memory>
+#include <vector>
 
 namespace net {
 
@@ -24,7 +25,7 @@ namespace net {
  *
  * This type is non-copyable and intended for polymorphic use.
  */
-class IAcceptor {
+class IAcceptor : public std::enable_shared_from_this<IAcceptor> {
 public:
   /// Native socket handle type.
   using Handle = detail::SocketDescriptorHandle::Handle;
@@ -50,7 +51,10 @@ public:
    *
    * @note The returned connection object owns the accepted socket.
    */
-  virtual task<std::unique_ptr<IConnection>> async_accept() = 0;
+  virtual task<std::shared_ptr<IConnection>> async_accept() = 0;
+
+  virtual task<std::vector<std::shared_ptr<IConnection>>>
+  async_multi_accept() = 0;
 
   /**
    * @brief Returns the local endpoint the acceptor is bound to.
@@ -70,6 +74,7 @@ public:
 
   virtual void bind(const Endpoint &ep) = 0;
   virtual void listen(int backlog) = 0;
+  virtual std::shared_ptr<IConnection> try_accept() = 0;
 };
 
 } // namespace net

@@ -61,8 +61,7 @@ public:
   /**
    * @brief Destructor closes the socket if valid.
    */
-  // ~TcpSocket() = default;
-  ~TcpSocket() { std::cout << "Socket destroyed\n"; }
+  ~TcpSocket() = default;
 
   /**
    * @brief Connect to a remote endpoint.

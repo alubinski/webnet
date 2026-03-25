@@ -1,4 +1,5 @@
 #pragma once
+#include "net/connection/iconnection.h"
 #include "net/poll/ipoll.h"
 #include "reactor.h"
 
@@ -39,8 +40,9 @@ public:
    * @param fd File descriptor to monitor.
    * @param events Poll events to wait for (read, write, etc.).
    */
-  async_operation(Reactor &r, fd_t fd, PollEvent events)
-      : reactor_{r}, fd_{fd}, events_{events} {}
+  async_operation(Reactor &r, std::shared_ptr<IConnection> conn,
+                  PollEvent events)
+      : reactor_{r}, conn_{conn}, events_{events} {}
 
   /**
    * @brief Determines if the coroutine should suspend.
@@ -61,7 +63,7 @@ public:
    * @param h Handle of the suspended coroutine.
    */
   void await_suspend(std::coroutine_handle<> h) {
-    reactor_.register_fd(fd_, events_, h);
+    reactor_.register_fd(conn_->native_handle(), events_, h);
   }
 
   /**
@@ -77,7 +79,9 @@ private:
   Reactor &reactor_;
 
   /// File descriptor associated with the operation.
-  fd_t fd_;
+  // fd_t fd_;
+
+  std::shared_ptr<IConnection> conn_;
 
   /// Poll events the coroutine is waiting for.
   PollEvent events_;

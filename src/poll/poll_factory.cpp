@@ -6,6 +6,7 @@
 #elif __APPLE__
 #include "net/poll/poll_macos.h"
 #else
+#include "net/poll/epoll.h"
 #include "net/poll/poll_linux.h"
 #endif
 
@@ -17,7 +18,7 @@ std::unique_ptr<detail::IPoll> CreateDefaultReactor() {
 #elif __APPLE__
   return std::make_unique<MacPoll>();
 #else
-  return std::make_unique<LinuxPoll>();
+  return std::make_unique<EpollPoll>();
 #endif
 }
 

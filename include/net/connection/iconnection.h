@@ -1,9 +1,12 @@
 #pragma once
 #include "net/core/endpoint.h"
 #include "net/coroutine/task.h"
+#include "net/detail/socket_flags.h"
 #include "net/detail/socket_handle.h"
 #include <cstddef>
+#include <memory>
 #include <span>
+#include <sys/socket.h>
 
 namespace net {
 
@@ -24,7 +27,7 @@ namespace net {
  *
  * The type is intended for polymorphic use and is non-copyable.
  */
-class IConnection {
+class IConnection : public std::enable_shared_from_this<IConnection> {
 public:
   virtual ~IConnection() = default;
 
@@ -88,7 +91,7 @@ public:
    *
    * Suspended read operations may resume as a result.
    */
-  virtual void notify_readable() = 0;
+  // virtual void notify_readable() = 0;
 
   /**
    * @brief Notifies the connection that the socket is writable.
@@ -98,7 +101,7 @@ public:
    *
    * Suspended write operations may resume as a result.
    */
-  virtual void notify_writable() = 0;
+  // virtual void notify_writable() = 0;
 
   /**
    * @brief Notifies the connection that the socket is writable.
@@ -109,6 +112,8 @@ public:
    * Suspended write operations may resume as a result.
    */
   virtual void close() = 0;
+
+  virtual void shutdown(detail::SocketFlags::ShutdownType how) = 0;
 };
 
 } // namespace net
