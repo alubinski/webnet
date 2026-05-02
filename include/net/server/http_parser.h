@@ -44,7 +44,7 @@ template <> struct std::formatter<HttpRequest> {
 };
 
 // This populates the struct that your formatter knows how to print
-auto parse_http(std::string_view raw_request)
+inline auto parse_http(std::string_view raw_request)
     -> std::expected<HttpRequest, ParseError> {
   HttpRequest req;
 

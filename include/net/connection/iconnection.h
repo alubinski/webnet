@@ -81,26 +81,6 @@ public:
   virtual Endpoint remote_endpoint() const = 0;
 
   /**
-   * @brief Notifies the connection that the socket is readable.
-   *
-   * Typically called by an event loop or I/O multiplexer
-   * when the underlying descriptor becomes readable.
-   *
-   * Suspended read operations may resume as a result.
-   */
-  virtual void notify_readable() = 0;
-
-  /**
-   * @brief Notifies the connection that the socket is writable.
-   *
-   * Typically called by an event loop or I/O multiplexer
-   * when the underlying descriptor becomes writable.
-   *
-   * Suspended write operations may resume as a result.
-   */
-  virtual void notify_writable() = 0;
-
-  /**
    * @brief Notifies the connection that the socket is writable.
    *
    * Typically called by an event loop or I/O multiplexer

@@ -61,8 +61,8 @@ public:
   /**
    * @brief Destructor closes the socket if valid.
    */
-  // ~TcpSocket() = default;
-  ~TcpSocket() { std::cout << "Socket destroyed\n"; }
+  ~TcpSocket() = default;
+  // ~TcpSocket() { std::cout << "Socket destroyed\n"; }
 
   /**
    * @brief Connect to a remote endpoint.
@@ -89,6 +89,7 @@ public:
    */
   void setReuseAddress(bool enable);
 
+  void setReusePort(bool enable);
   /**
    * @brief Start listening for incoming connections.
    *
