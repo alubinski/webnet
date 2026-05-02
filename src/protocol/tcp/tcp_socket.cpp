@@ -41,9 +41,27 @@ void TcpSocket::bind(const Endpoint &ep) {
     throw std::logic_error("bind on invalid socket");
   }
   setReuseAddress(true);
+  setReusePort(true);
   if (::bind(native_handle(), ep.data(), ep.size()) < 0) {
     throw std::system_error(detail::last_socket_error(),
                             detail::socket_category(), "tcp bind failed");
+  }
+}
+
+void TcpSocket::setReusePort(bool enable) {
+  if (!is_valid()) {
+    throw std::logic_error("setReusePort on invalid socket");
+  }
+
+  int opt = enable ? 1 : 0;
+
+  // Note: Using SO_REUSEPORT instead of SO_REUSEADDR
+  if (::setsockopt(native_handle(), SOL_SOCKET, SO_REUSEPORT,
+                   reinterpret_cast<const char *>(&opt), sizeof(opt)) < 0) {
+
+    throw std::system_error(detail::last_socket_error(),
+                            detail::socket_category(),
+                            "setsockopt(SO_REUSEPORT) failed");
   }
 }
 

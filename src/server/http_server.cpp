@@ -1,90 +1,47 @@
 #include "net/server/http_server.h"
+#include "net/core/endpoint.h"
+#include "net/coroutine/spawn.h"
+#include "net/coroutine/task.h"
+#include "net/coroutine/thread_pool.h"
+#include "net/coroutine/wait.h"
 #include "net/detail/socket_flags.h"
+#include "net/poll/epoll_context.h"
+#include "net/server/http_parser.h"
+#include "net/server/http_response.h"
+#include "net/server/http_worker.h"
+#include <algorithm>
+#include <chrono>
+#include <future>
+#include <iostream>
+#include <ranges>
+#include <span>
+#include <string_view>
+#include <thread>
 #include <utility>
+#include <vector>
 
 namespace net::http {
 
-// template <typename T> void start_detached(task<T> &&t) {
-//   auto h = t.release_handle();         // steal handle
-//   h.promise().set_detached_flag(true); // ensure detached
-//   h.resume();                          // start execution
+// void HttpServer::serve() {
+//   auto worker_pipeline =
+//       std::views::iota(0) | std::views::take(pool_.size()) |
+//       std::views::transform([this](auto) noexcept -> task<> {
+//         return [this]() noexcept -> task<> {
+//           std::cout << "[HttpServer] worker coroutine created\n";
+//           co_await pool_.schedule();
+//
+//           std::cout << "[HttpServer] worker running on thread\n";
+//           HttpWorker worker;
+//           worker.init(ep_);
+//           epoll_context::get_instance().run();
+//         }();
+//       }) |
+//       std::ranges::to<std::vector<task<>>>();
+//
+//   std::ranges::for_each(worker_pipeline, spawn<task<> &>);
+//   std::ranges::for_each(worker_pipeline, wait<task<> &>);
+//   // std::ranges::for_each(worker_pipeline, [](task<> &t) { t.detach(); });
+//   // shutdown_promise_.get_future().wait();
 // }
-
-static std::string parse_path(std::string_view request) {
-  // find first line
-  auto line_end = request.find("\r\n");
-  if (line_end == std::string_view::npos)
-    return "/";
-
-  auto first_line = request.substr(0, line_end);
-
-  // format: METHOD SP PATH SP HTTP/VERSION
-  auto method_end = first_line.find(' ');
-  if (method_end == std::string_view::npos)
-    return "/";
-
-  auto path_start = method_end + 1;
-
-  auto path_end = first_line.find(' ', path_start);
-  if (path_end == std::string_view::npos)
-    return "/";
-
-  return std::string(first_line.substr(path_start, path_end - path_start));
-}
-
-task<void> HttpServer::serve() {
-  // Move execution to worker thread
-  co_await pool_.schedule();
-
-  while (!stop_flag_.load(std::memory_order_acquire)) {
-
-    auto conn = co_await acceptor_->async_accept();
-
-    co_await handle_client(std::move(conn));
-    // auto client_task = handle_client(std::move(conn));
-    // start_detached(std::move(client_task));
-  }
-}
-
-task<void> HttpServer::handle_client(std::unique_ptr<IConnection> conn) {
-
-  std::array<std::byte, 4096> buffer{};
-
-  auto n = co_await conn->async_read(buffer);
-
-  if (n <= 0)
-    co_return;
-
-  std::string request(reinterpret_cast<char *>(buffer.data()), n);
-
-  auto path = parse_path(request);
-
-  std::string body;
-
-  if (auto it = routes_.find(path); it != routes_.end()) {
-    body = it->second(path);
-  } else {
-    body = "Not Found";
-  }
-
-  auto response = build_response(body);
-
-  co_await conn->async_write(std::as_bytes(std::span(response)));
-
-  conn->close();
-}
-
-std::string HttpServer::build_response(std::string_view body) {
-
-  std::string resp;
-
-  resp += "HTTP/1.1 200 OK\r\n";
-  resp += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-  resp += "Connection: close\r\n";
-  resp += "\r\n";
-  resp += body;
-
-  return resp;
-}
 
 } // namespace net::http

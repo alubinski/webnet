@@ -1,4 +1,5 @@
 #pragma once
+#include "net/poll/epoll_context.h"
 #include "trait.h"
 #include <algorithm>
 #include <atomic>
@@ -6,8 +7,10 @@
 #include <coroutine>
 #include <cstdint>
 #include <deque>
+#include <iostream>
 #include <mutex>
 #include <ranges>
+#include <sys/epoll.h>
 #include <thread>
 #include <vector>
 
@@ -50,14 +53,23 @@ public:
    * Any remaining queued coroutines will not be executed.
    */
   ~thread_pool() {
-    stop_token_.store(true, std::memory_order_release);
+    stop();
+    join();
+  }
 
+  void stop() {
+    {
+      std::unique_lock lock(mutex_);
+      stop_token_ = true;
+    }
     condition_variable_.notify_all();
+  }
 
-    std::ranges::for_each(thread_list_, [](auto &t) {
+  void join() {
+    for (auto &t : thread_list_) {
       if (t.joinable())
         t.join();
-    });
+    }
   }
 
   /**
@@ -84,8 +96,8 @@ public:
      *
      * @param coroutine Handle of the suspended coroutine.
      */
-    auto await_suspend(std::coroutine_handle<> coroutine) const noexcept
-        -> void {
+    auto await_suspend(std::coroutine_handle<> coroutine) const -> void {
+      std::cout << "[schedule] suspending + enqueue\n";
       thread_pool_.enqueue(coroutine);
     }
 
@@ -104,7 +116,10 @@ public:
      *
      * @param tp Reference to the thread pool scheduler.
      */
-    explicit schedule_awaiter(thread_pool &tp) noexcept : thread_pool_{tp} {}
+    explicit schedule_awaiter(thread_pool &tp) noexcept : thread_pool_{tp} {
+      std::cout << "schedule_awaiter this=" << this << " pool=" << &thread_pool_
+                << "\n";
+    }
 
     /// Reference to the associated thread pool.
     thread_pool &thread_pool_;
@@ -147,11 +162,9 @@ public:
    * @param coroutine Coroutine handle to schedule.
    */
   auto enqueue(std::coroutine_handle<> coroutine) -> void {
-    {
-      std::unique_lock lock(mutex_);
-      coroutine_queue_.push_back(coroutine);
-    }
-
+    std::cout << "enqueue this=" << this << "\n";
+    const std::unique_lock lock(mutex_);
+    coroutine_queue_.emplace_back(coroutine);
     condition_variable_.notify_one();
   }
 
@@ -162,30 +175,49 @@ private:
    * Continuously waits for new coroutine tasks and resumes them
    * until the thread pool is stopped.
    */
-  auto thread_loop() noexcept -> void {
-    while (!stop_token_.load(std::memory_order_acquire)) {
-
-      std::coroutine_handle<> coroutine;
-
-      {
-        std::unique_lock lock(mutex_);
-
-        condition_variable_.wait(lock, [this]() noexcept {
-          return stop_token_.load(std::memory_order_acquire) ||
-                 !coroutine_queue_.empty();
-        });
-
-        if (stop_token_.load(std::memory_order_acquire))
-          return;
-
-        coroutine = coroutine_queue_.front();
-        coroutine_queue_.pop_front();
+  auto thread_loop() -> void {
+    while (!stop_token_) {
+      std::unique_lock lock(mutex_);
+      condition_variable_.wait(lock, [this]() noexcept -> bool {
+        return stop_token_ || !coroutine_queue_.empty();
+      });
+      if (stop_token_) {
+        break;
       }
 
-      if (coroutine && !coroutine.done())
-        coroutine.resume();
+      const std::coroutine_handle<> coroutine = coroutine_queue_.back();
+      coroutine_queue_.pop_back();
+      lock.unlock();
+
+      coroutine.resume();
     }
+    std::cout << "broke\n";
   }
+  // auto thread_loop() noexcept -> void {
+  //   std::cout << "[thread] resuming coroutine\n";
+  //   while (!stop_token_.load(std::memory_order_acquire)) {
+  //
+  //     std::coroutine_handle<> coroutine;
+  //
+  //     {
+  //       std::unique_lock lock(mutex_);
+  //
+  //       condition_variable_.wait(lock, [this]() noexcept {
+  //         return stop_token_.load(std::memory_order_acquire) ||
+  //                !coroutine_queue_.empty();
+  //       });
+  //
+  //       if (stop_token_.load(std::memory_order_acquire))
+  //         return;
+  //
+  //       coroutine = coroutine_queue_.front();
+  //       coroutine_queue_.pop_front();
+  //     }
+  //
+  //     if (coroutine && !coroutine.done())
+  //       coroutine.resume();
+  //   }
+  // }
 
 private:
   /// Mutex protecting the coroutine queue.

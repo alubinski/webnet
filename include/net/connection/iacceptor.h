@@ -50,7 +50,7 @@ public:
    *
    * @note The returned connection object owns the accepted socket.
    */
-  virtual task<std::unique_ptr<IConnection>> async_accept() = 0;
+  virtual task<std::shared_ptr<IConnection>> async_accept() = 0;
 
   /**
    * @brief Returns the local endpoint the acceptor is bound to.

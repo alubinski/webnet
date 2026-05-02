@@ -1,11 +1,12 @@
 #pragma once
 #include "net/connection/iconnection.h"
 #include "net/core/endpoint.h"
-#include "net/coroutine/reactor.h"
 #include "net/detail/socket_handle.h"
+#include "net/poll/epoll_context.h"
 #include "tcp_socket.h"
 #include <algorithm>
 #include <coroutine>
+#include <span>
 #include <vector>
 
 namespace net {
@@ -28,17 +29,9 @@ public:
    * @param socket Underlying TCP socket to manage.
    * @param remote Remote endpoint associated with the connection.
    */
-  explicit TcpConnection(TcpSocket socket, Endpoint remote, Reactor &reactor)
+  explicit TcpConnection(TcpSocket socket, Endpoint remote)
       : socket_(std::move(socket)), local_(socket_.localEndpoint()),
-        remote_(std::move(remote)), reactor_(reactor) {}
-
-  ~TcpConnection() {
-    if (read_awaiting_)
-      read_awaiting_.destroy();
-
-    if (write_awaiting_)
-      write_awaiting_.destroy();
-  }
+        remote_(std::move(remote)) {}
 
   /**
    * @brief Retrieves the native socket handle.
@@ -49,6 +42,35 @@ public:
     return socket_.native_handle();
   }
 
+  class read_guard {
+  public:
+    explicit read_guard(TcpSocket &socket, std::span<std::byte> &buffer,
+                        std::size_t len) noexcept
+        : socket_(socket), buffer_(buffer), len_(len) {}
+
+    ~read_guard() noexcept {
+      epoll_context::get_instance().unwatch(socket_.native_handle());
+    }
+
+    bool await_ready() const noexcept { return false; }
+
+    void await_suspend(std::coroutine_handle<> h) noexcept {
+      // Watch for Input and use Edge-Triggered + OneShot
+      epoll_context::get_instance().watch(socket_.native_handle(),
+                                          EPOLLIN | EPOLLET, h);
+    }
+
+    // Returns number of bytes read, 0 for disconnect, or -1 for error
+    [[nodiscard]] ssize_t await_resume() const noexcept {
+      return socket_.receive(buffer_);
+    }
+
+  private:
+    TcpSocket &socket_;
+    std::span<std::byte> &buffer_;
+    std::size_t len_;
+  };
+
   /**
    * @brief Asynchronously reads data from the socket into the provided buffer.
    *
@@ -58,7 +80,45 @@ public:
    * @param buffer Destination buffer to store read bytes.
    * @return Number of bytes successfully read.
    */
-  task<std::size_t> async_read(std::span<std::byte> buffer) override;
+  task<std::size_t> async_read(std::span<std::byte> buffer) override {
+    co_return co_await read_guard{socket_, buffer, 0};
+  }
+
+  class write_guard {
+  public:
+    // We take a const void* because we are only reading from this buffer to
+    // send it
+    explicit write_guard(TcpSocket &socket, std::span<const std::byte> &buffer,
+                         std::size_t len) noexcept
+        : socket_(socket), buffer_(buffer), len_(len) {}
+
+    ~write_guard() noexcept {
+      // Stop watching the socket when the guard goes out of scope
+      epoll_context::get_instance().unwatch(socket_.native_handle());
+    }
+
+    // Always suspend to ensure we are synchronized with the epoll loop
+    bool await_ready() const noexcept { return false; }
+
+    void await_suspend(std::coroutine_handle<> h) noexcept {
+      // Watch for Output (readiness to write) + Edge-Triggered
+      epoll_context::get_instance().watch(socket_.native_handle(),
+                                          EPOLLOUT | EPOLLET, h);
+    }
+
+    // Returns number of bytes sent, or -1 for error
+    [[nodiscard]] ssize_t await_resume() const noexcept {
+      // MSG_NOSIGNAL is critical for servers: it prevents SIGPIPE
+      // if the client closed the connection before we finished writing.
+
+      return socket_.send(buffer_);
+    }
+
+  private:
+    TcpSocket &socket_;
+    std::span<const std::byte> buffer_;
+    std::size_t len_;
+  };
 
   /**
    * @brief Asynchronously writes data to the socket.
@@ -68,7 +128,19 @@ public:
    *
    * @param buffer Source buffer containing bytes to send.
    */
-  task<void> async_write(std::span<const std::byte> buffer) override;
+  task<void> async_write(std::span<const std::byte> buffer) override {
+    auto remaining = buffer;
+
+    while (!remaining.empty()) {
+      // The awaiter handles the suspension if the socket buffer is full
+      std::size_t n = co_await write_guard{this->socket_, remaining, 0};
+
+      if (n == 0)
+        throw std::runtime_error("connection closed during write");
+
+      remaining = remaining.subspan(n);
+    }
+  }
 
   /**
    * @brief Asynchronously establishes a connection to the specified endpoint.
@@ -96,25 +168,11 @@ public:
    */
   void close() override;
 
-  /**
-   * @brief Notification handler invoked when the socket becomes readable.
-   */
-  void notify_readable() override;
-
-  /**
-   * @brief Notification handler invoked when the socket becomes writable.
-   */
-  void notify_writable() override;
-
 private:
   TcpSocket socket_;
 
   Endpoint local_;
   Endpoint remote_;
-
-  Reactor &reactor_;
-  std::coroutine_handle<> read_awaiting_;
-  std::coroutine_handle<> write_awaiting_;
 
   std::span<std::byte> read_buffer_{};
   std::vector<std::byte> write_buffer_;
